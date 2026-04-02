@@ -11,14 +11,20 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            background-color: #222; /* 画面外の背景色を暗く */
+            background-color: #222;
         }
 
         canvas {
-            /* ドット絵をぼやけさせずに拡大する魔法のCSS */
-            image-rendering: pixelated; 
-            width: 800px;  /* 実際の画面での見た目の大きさ（お好みで変更可能） */
-            height: 800px; /* 実際の画面での見た目の大きさ */
+            /* ドット絵をぼやけさせずに拡大する魔法のCSS（互換性強化） */
+            image-rendering: -webkit-optimize-contrast; /* 古い Safari, Chrome 用 */
+            image-rendering: -moz-crisp-edges;       /* 古い Firefox 用 */
+            image-rendering: -o-crisp-edges;         /* 古い Opera 用 */
+            image-rendering: crisp-edges;           /* 標準（将来用） */
+            image-rendering: pixelated;             /* 最新ブラウザ標準 */
+            
+            /* 画面をもっとでかく！ 400px -> 800px に変更 */
+            width: 800px;  
+            height: 800px; 
             background-color: #000;
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
@@ -26,16 +32,15 @@
 </head>
 <body>
 
-    <!-- ゲームを描画するキャンバス（内部の解像度を100x100に設定） -->
     <canvas id="gameCanvas" width="100" height="100"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // --- 1. 画像素材の読み込み ---
+        // --- 1. 画像素材の読み込み（パスを ../images/ に修正） ---
         const bgImg = new Image();
-        bgImg.src = '../images/haikei.png';
+        bgImg.src = '../images/haikei.png'; // 「../」をつけて1つ外のフォルダを見に行く
 
         const playerImg = new Image();
         playerImg.src = '../images/zibunn.png';
@@ -44,19 +49,16 @@
         bulletImg.src = '../images/tama.png';
 
         // --- 2. キャラクターと弾の設定 ---
-        // 自キャラの初期ステータス
         const player = {
-            x: 45, // 100x100の真ん中あたり
-            y: 80, // 少し下の方
-            width: 10,  // キャラクターの幅（画像のサイズに合わせて調整してください）
-            height: 10, // キャラクターの高さ（画像のサイズに合わせて調整してください）
-            speed: 2    // 移動スピード
+            x: 45, 
+            y: 80, 
+            width: 10,  
+            height: 10, 
+            speed: 2    
         };
 
-        // 弾を管理する配列
         let bullets = [];
 
-        // キーボードの入力状態を保存するオブジェクト
         const keys = {
             w: false,
             a: false,
@@ -65,9 +67,8 @@
             Enter: false
         };
 
-        // 弾の連射スピードを調整するための変数
         let lastFireTime = 0;
-        const fireRate = 150; // 何ミリ秒ごとに弾を発射するか（数値を小さくすると連射速度アップ）
+        const fireRate = 150; 
 
         // --- 3. キーボード入力の監視 ---
         window.addEventListener('keydown', (e) => {
@@ -86,34 +87,30 @@
             if (e.key === 'Enter') keys.Enter = false;
         });
 
-        // --- 4. ゲームの更新処理（移動や発射の計算） ---
+        // --- 4. ゲームの更新処理 ---
         function update() {
-            // WASDで移動（画面外に出ないように制限）
             if (keys.w && player.y > 0) player.y -= player.speed;
             if (keys.s && player.y < canvas.height - player.height) player.y += player.speed;
             if (keys.a && player.x > 0) player.x -= player.speed;
             if (keys.d && player.x < canvas.width - player.width) player.x += player.speed;
 
-            // エンターキーで弾を発射（ぴゅんぴゅん連射）
             if (keys.Enter) {
                 const now = Date.now();
-                // 前回の発射から一定時間（fireRate）経過していたら発射
                 if (now - lastFireTime > fireRate) {
-                    bullets.push({
-                        x: player.x + (player.width / 2) - 2, // 自キャラの中心から発射
+                    // 弾の発射ロジックを修正（配列の先頭に追加）
+                    bullets.unshift({ 
+                        x: player.x + (player.width / 2) - 2, 
                         y: player.y,
-                        width: 4,  // 弾の幅（画像に合わせて調整）
-                        height: 4, // 弾の高さ（画像に合わせて調整）
-                        speed: 3   // 弾が飛んでいくスピード
+                        width: 4,  
+                        height: 4, 
+                        speed: 3   
                     });
                     lastFireTime = now;
                 }
             }
 
-            // 弾を上に移動させる
             for (let i = bullets.length - 1; i >= 0; i--) {
                 bullets[i].y -= bullets[i].speed;
-                // 画面外（上）に出た弾は配列から削除してメモリを節約
                 if (bullets[i].y + bullets[i].height < 0) {
                     bullets.splice(i, 1);
                 }
@@ -122,35 +119,52 @@
 
         // --- 5. 画面への描画処理 ---
         function draw() {
-            // 背景を描画（100x100のサイズで塗りつぶす）
-            if (bgImg.complete) {
+            if (bgImg.complete && bgImg.naturalWidth !== 0) {
                 ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
             } else {
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // 画像がない時はクリア
+                ctx.clearRect(0, 0, canvas.width, canvas.height); 
             }
 
-            // 弾を描画
-            if (bulletImg.complete) {
+            if (bulletImg.complete && bulletImg.naturalWidth !== 0) {
                 bullets.forEach(b => {
                     ctx.drawImage(bulletImg, b.x, b.y, b.width, b.height);
                 });
             }
 
-            // 自キャラを描画
-            if (playerImg.complete) {
+            if (playerImg.complete && playerImg.naturalWidth !== 0) {
                 ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
             }
         }
 
         // --- 6. ゲームループ ---
+        // 描画時の補間を無効にする（ここを追加）
+        ctx.imageSmoothingEnabled = false; 
+
         function gameLoop() {
-            update(); // 計算
-            draw();   // 描画
-            requestAnimationFrame(gameLoop); // 次のフレームでまたgameLoopを呼び出す
+            update(); 
+            draw();   
+            requestAnimationFrame(gameLoop); 
         }
 
-        // ゲームスタート
-        gameLoop();
+        // 全ての画像が読み込まれてからゲームループを開始するようにする（安全のため）
+        let loadedCount = 0;
+        const checkImagesLoaded = () => {
+            loadedCount++;
+            if (loadedCount === 3) {
+                gameLoop();
+            }
+        };
+
+        bgImg.onload = checkImagesLoaded;
+        playerImg.onload = checkImagesLoaded;
+        bulletImg.onload = checkImagesLoaded;
+        
+        // 画像がキャッシュされている場合はonloadが呼ばれないことがあるため、
+        // gameLoop()は一度だけ実行されるようにする。
+        if (bgImg.complete && playerImg.complete && bulletImg.complete) {
+            gameLoop();
+        }
+
     </script>
 </body>
 </html>
