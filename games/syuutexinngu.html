@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シューティングゲーム</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #222; /* 画面外の背景色を暗く */
+        }
+
+        canvas {
+            /* ドット絵をぼやけさせずに拡大する魔法のCSS */
+            image-rendering: pixelated; 
+            width: 400px;  /* 実際の画面での見た目の大きさ（お好みで変更可能） */
+            height: 400px; /* 実際の画面での見た目の大きさ */
+            background-color: #000;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ゲームを描画するキャンバス（内部の解像度を100x100に設定） -->
+    <canvas id="gameCanvas" width="100" height="100"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- 1. 画像素材の読み込み ---
+        const bgImg = new Image();
+        bgImg.src = 'images/haikei.png';
+
+        const playerImg = new Image();
+        playerImg.src = 'images/zibunn.png';
+
+        const bulletImg = new Image();
+        bulletImg.src = 'images/tama.png';
+
+        // --- 2. キャラクターと弾の設定 ---
+        // 自キャラの初期ステータス
+        const player = {
+            x: 45, // 100x100の真ん中あたり
+            y: 80, // 少し下の方
+            width: 10,  // キャラクターの幅（画像のサイズに合わせて調整してください）
+            height: 10, // キャラクターの高さ（画像のサイズに合わせて調整してください）
+            speed: 2    // 移動スピード
+        };
+
+        // 弾を管理する配列
+        let bullets = [];
+
+        // キーボードの入力状態を保存するオブジェクト
+        const keys = {
+            w: false,
+            a: false,
+            s: false,
+            d: false,
+            Enter: false
+        };
+
+        // 弾の連射スピードを調整するための変数
+        let lastFireTime = 0;
+        const fireRate = 150; // 何ミリ秒ごとに弾を発射するか（数値を小さくすると連射速度アップ）
+
+        // --- 3. キーボード入力の監視 ---
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'w' || e.key === 'W') keys.w = true;
+            if (e.key === 'a' || e.key === 'A') keys.a = true;
+            if (e.key === 's' || e.key === 'S') keys.s = true;
+            if (e.key === 'd' || e.key === 'D') keys.d = true;
+            if (e.key === 'Enter') keys.Enter = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'w' || e.key === 'W') keys.w = false;
+            if (e.key === 'a' || e.key === 'A') keys.a = false;
+            if (e.key === 's' || e.key === 'S') keys.s = false;
+            if (e.key === 'd' || e.key === 'D') keys.d = false;
+            if (e.key === 'Enter') keys.Enter = false;
+        });
+
+        // --- 4. ゲームの更新処理（移動や発射の計算） ---
+        function update() {
+            // WASDで移動（画面外に出ないように制限）
+            if (keys.w && player.y > 0) player.y -= player.speed;
+            if (keys.s && player.y < canvas.height - player.height) player.y += player.speed;
+            if (keys.a && player.x > 0) player.x -= player.speed;
+            if (keys.d && player.x < canvas.width - player.width) player.x += player.speed;
+
+            // エンターキーで弾を発射（ぴゅんぴゅん連射）
+            if (keys.Enter) {
+                const now = Date.now();
+                // 前回の発射から一定時間（fireRate）経過していたら発射
+                if (now - lastFireTime > fireRate) {
+                    bullets.push({
+                        x: player.x + (player.width / 2) - 2, // 自キャラの中心から発射
+                        y: player.y,
+                        width: 4,  // 弾の幅（画像に合わせて調整）
+                        height: 4, // 弾の高さ（画像に合わせて調整）
+                        speed: 3   // 弾が飛んでいくスピード
+                    });
+                    lastFireTime = now;
+                }
+            }
+
+            // 弾を上に移動させる
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= bullets[i].speed;
+                // 画面外（上）に出た弾は配列から削除してメモリを節約
+                if (bullets[i].y + bullets[i].height < 0) {
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+
+        // --- 5. 画面への描画処理 ---
+        function draw() {
+            // 背景を描画（100x100のサイズで塗りつぶす）
+            if (bgImg.complete) {
+                ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // 画像がない時はクリア
+            }
+
+            // 弾を描画
+            if (bulletImg.complete) {
+                bullets.forEach(b => {
+                    ctx.drawImage(bulletImg, b.x, b.y, b.width, b.height);
+                });
+            }
+
+            // 自キャラを描画
+            if (playerImg.complete) {
+                ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+            }
+        }
+
+        // --- 6. ゲームループ ---
+        function gameLoop() {
+            update(); // 計算
+            draw();   // 描画
+            requestAnimationFrame(gameLoop); // 次のフレームでまたgameLoopを呼び出す
+        }
+
+        // ゲームスタート
+        gameLoop();
+    </script>
+</body>
+</html>
